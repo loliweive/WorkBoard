@@ -1,0 +1,26 @@
+[
+  {
+    "id": "6eafaeb2-051c-427f-b590-43c0ddc7fb1e",
+    "name": "华为大平板-60V HPP",
+    "serial": "194A",
+    "retired": false,
+    "created": "2026-10-09",
+    "records": []
+  },
+  {
+    "id": "3031066d-5edf-48aa-87f8-d2fc126ceaf6",
+    "name": "华为小平板",
+    "serial": "92D6",
+    "retired": false,
+    "created": "2026-10-09",
+    "records": []
+  },
+  {
+    "id": "4b765edc-98b2-459a-8439-2f7d94e72911",
+    "name": "MPP笔和充电盒",
+    "serial": "",
+    "retired": false,
+    "created": "2026-10-09",
+    "records": []
+  }
+]

@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>任务看板</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+<header>
+  <h1>任务看板</h1>
+  <div class="header-right">
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input id="search-input" type="text" placeholder="搜索标题、标签…" autocomplete="off" />
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+      <span id="progress-label">0 / 0 完成</span>
+    </div>
+    <button id="btn-summary">📄 本月总结</button>
+    <button id="btn-help" title="使用说明">？</button>
+  </div>
+</header>
+
+<div class="workspace">
+
+  <!-- ── 看板三列 ── -->
+  <main class="board">
+    <div class="column" data-status="todo">
+      <div class="col-header">
+        <span class="col-icon">📌</span>
+        <span class="col-title">待办</span>
+        <span class="col-count" id="count-todo">0</span>
+        <button class="btn-add" data-status="todo" title="新建任务">＋</button>
+      </div>
+      <div class="card-list" id="list-todo"></div>
+    </div>
+
+    <div class="column" data-status="doing">
+      <div class="col-header">
+        <span class="col-icon">⚡</span>
+        <span class="col-title">进行中</span>
+        <span class="col-count" id="count-doing">0</span>
+      </div>
+      <div class="card-list" id="list-doing"></div>
+    </div>
+
+    <div class="column" data-status="done">
+      <div class="col-header">
+        <span class="col-icon">✅</span>
+        <span class="col-title">已完成</span>
+        <span class="col-count" id="count-done">0</span>
+      </div>
+      <div class="card-list" id="list-done"></div>
+      <div id="archive-section" style="display:none">
+        <button id="archive-toggle" class="archive-toggle-btn">
+          <span id="archive-toggle-label">查看存档 (0)</span>
+          <span id="archive-arrow">▾</span>
+        </button>
+        <div class="card-list hidden" id="list-archive"></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ── 右侧边栏 ── -->
+  <aside class="sidebar">
+
+    <!-- 日历 -->
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">🗓 日历</div>
+      <div class="cal-nav">
+        <button id="cal-prev" class="cal-nav-btn">‹</button>
+        <span id="cal-title" class="cal-nav-label"></span>
+        <button id="cal-next" class="cal-nav-btn">›</button>
+      </div>
+      <div class="cal-week-header">
+        <span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span>
+      </div>
+      <div id="cal-grid" class="cal-grid"></div>
+      <div class="cal-legend">
+        <span class="legend-item"><span class="legend-dot dot-today"></span>今天</span>
+        <span class="legend-item"><span class="legend-dot dot-holiday"></span>节假日</span>
+        <span class="legend-item"><span class="legend-dot dot-due"></span>有截止任务</span>
+      </div>
+    </div>
+
+    <!-- 法定假日倒计时 -->
+    <div class="sidebar-section">
+      <div class="sidebar-section-title" id="holidays-toggle" style="cursor:pointer;user-select:none;">
+        🎉 法定假日 <span id="holidays-arrow" style="font-size:.75rem;color:var(--text-sub);">▶</span>
+      </div>
+      <div id="holidays-list" class="countdown-list hidden"></div>
+    </div>
+
+    <!-- 自定义倒计时 -->
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">
+        ⏰ 自定义倒计时
+        <button id="btn-add-countdown" class="btn-section-add" title="添加">＋</button>
+      </div>
+      <div id="countdowns-list" class="countdown-list"></div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">
+        📦 设备管理
+        <button id="btn-device-add" class="btn-section-add" title="新增设备">＋</button>
+      </div>
+      <div id="devices-list"></div>
+    </div>
+
+  </aside>
+</div><!-- .workspace -->
+
+<!-- ── 新建/编辑任务弹窗 ── -->
+<div id="modal-task" class="modal hidden">
+  <div class="modal-box">
+    <h2 id="modal-title">新建任务</h2>
+    <input type="hidden" id="task-id" />
+
+    <label>标题 <span class="required">*</span></label>
+    <input id="task-title" type="text" placeholder="任务标题" autocomplete="off" />
+
+    <label>说明</label>
+    <textarea id="task-desc" rows="3" placeholder="可选说明"></textarea>
+
+    <label>标签 <span class="hint">（逗号分隔）</span></label>
+    <input id="task-tags" type="text" placeholder="嵌入式, AI, Python" />
+
+    <label>截止日期 <span class="hint">（可选）</span></label>
+    <input id="task-due" type="date" />
+
+    <label>优先级</label>
+    <div class="priority-selector" id="task-priority-group">
+      <button type="button" class="prio-btn" data-value="low">低</button>
+      <button type="button" class="prio-btn prio-active" data-value="medium">中</button>
+      <button type="button" class="prio-btn" data-value="high">高</button>
+    </div>
+
+    <label>关联文件夹</label>
+    <div class="folder-row">
+      <input id="task-folder" type="text" placeholder="粘贴路径，或点右侧浏览" />
+      <button id="btn-browse" type="button" class="btn-outline">浏览</button>
+    </div>
+
+    <label>子任务</label>
+    <div id="subtask-list" class="modal-subtask-list"></div>
+    <div class="subtask-add-row">
+      <input id="subtask-input" type="text" placeholder="输入子任务，回车添加" autocomplete="off" />
+      <button id="btn-add-subtask" type="button" class="btn-outline btn-sm">＋</button>
+    </div>
+
+    <div class="modal-actions">
+      <button id="btn-task-cancel" class="btn-outline">取消</button>
+      <button id="btn-task-save" class="btn-primary">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 目录浏览器弹窗 ── -->
+<div id="modal-browse" class="modal hidden">
+  <div class="modal-box modal-browse-box">
+    <h2>选择文件夹</h2>
+    <div id="breadcrumb" class="breadcrumb"></div>
+    <ul id="dir-list" class="dir-list"></ul>
+    <div class="modal-actions">
+      <button id="btn-browse-cancel" class="btn-outline">取消</button>
+      <button id="btn-browse-select" class="btn-primary">选择此目录</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 添加倒计时弹窗 ── -->
+<div id="modal-countdown" class="modal hidden">
+  <div class="modal-box modal-sm">
+    <h2>添加自定义倒计时</h2>
+    <label>标签名</label>
+    <input id="countdown-label" type="text" placeholder="例：年终绩效考核" autocomplete="off" />
+    <label>目标日期</label>
+    <input id="countdown-date" type="date" />
+    <div class="modal-actions">
+      <button id="btn-countdown-cancel" class="btn-outline">取消</button>
+      <button id="btn-countdown-save" class="btn-primary">添加</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 确认弹窗 ── -->
+<div id="modal-confirm" class="modal hidden">
+  <div class="modal-box modal-sm">
+    <p id="confirm-msg"></p>
+    <div class="modal-actions">
+      <button id="btn-confirm-cancel" class="btn-outline">取消</button>
+      <button id="btn-confirm-ok" class="btn-primary">确认</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast hidden"></div>
+
+<!-- ── 新增设备弹窗 ── -->
+<div id="modal-device" class="modal hidden">
+  <div class="modal-box modal-sm">
+    <h2>新增设备</h2>
+    <label>设备名称 <span class="required">*</span></label>
+    <input id="device-name" type="text" placeholder="如：万用表" autocomplete="off" />
+    <label>编号 / 序列号 <span class="hint">（可选）</span></label>
+    <input id="device-serial" type="text" placeholder="如：SN-001" autocomplete="off" />
+    <div class="modal-actions">
+      <button id="btn-device-cancel" class="btn-outline">取消</button>
+      <button id="btn-device-save"   class="btn-primary">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 借出记录弹窗 ── -->
+<div id="modal-borrow" class="modal hidden">
+  <div class="modal-box modal-sm">
+    <h2>记录借出</h2>
+    <input type="hidden" id="borrow-device-id" />
+    <label>借走人 <span class="required">*</span></label>
+    <input id="borrow-person" type="text" placeholder="姓名" autocomplete="off" />
+    <p class="help-tip" style="margin-top:8px;">日期将自动记录为今天</p>
+    <div class="modal-actions">
+      <button id="btn-borrow-cancel" class="btn-outline">取消</button>
+      <button id="btn-borrow-save"   class="btn-primary">确认借出</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 月度总结选择弹窗 ── -->
+<div id="modal-summary" class="modal hidden">
+  <div class="modal-box modal-sm">
+    <h2>📄 生成月度总结</h2>
+    <label style="margin-top:12px;display:block;">选择月份</label>
+    <input id="summary-month" type="month" style="margin-top:6px;width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:var(--radius);font-size:.9rem;font-family:inherit;" />
+    <div class="modal-actions" style="margin-top:16px;">
+      <button id="btn-summary-cancel" class="btn-outline">取消</button>
+      <button id="btn-summary-ok" class="btn-primary">生成</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 使用说明弹窗 ── -->
+<div id="modal-help" class="modal hidden">
+  <div class="modal-box modal-help-box">
+    <h2>📋 使用说明</h2>
+
+    <div class="help-section">
+      <h3>任务结构原则</h3>
+      <div class="help-table">
+        <div class="help-row help-row-header">
+          <span>条目特征</span><span>建议放在</span>
+        </div>
+        <div class="help-row">
+          <span>无法直接"去做"，是一个方向或领域</span>
+          <span class="help-tag help-tag-tag">标签</span>
+        </div>
+        <div class="help-row">
+          <span>有明确完成标准，需要多个步骤</span>
+          <span class="help-tag help-tag-task">主任务</span>
+        </div>
+        <div class="help-row">
+          <span>能在一次工作中完成的具体动作</span>
+          <span class="help-tag help-tag-sub">子任务</span>
+        </div>
+        <div class="help-row">
+          <span>内容复杂，子任务写不下</span>
+          <span class="help-tag help-tag-desc">说明字段 或 拆成新主任务</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="help-section">
+      <h3>三句话记住</h3>
+      <ul class="help-list">
+        <li><strong>主任务</strong> = 一件有交付物的事（完成后能说"这件事做完了"）</li>
+        <li><strong>子任务</strong> = 完成这件事需要经过的具体步骤</li>
+        <li><strong>标签</strong> = 这件事属于哪个领域 / 项目</li>
+      </ul>
+    </div>
+
+    <div class="help-section">
+      <h3>示例</h3>
+      <div class="help-example bad">
+        <div class="help-example-label">❌ 常见误用</div>
+        <div class="help-example-tree">
+          主任务：长期规划<br>
+          &nbsp;&nbsp;└ 子任务：形成 workflow<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└ 需要：项目 A 的 workflow
+        </div>
+      </div>
+      <div class="help-example good">
+        <div class="help-example-label">✅ 推荐结构</div>
+        <div class="help-example-tree">
+          标签：长期规划<br>
+          主任务：建立项目 A 的标准 workflow<br>
+          &nbsp;&nbsp;└ 子任务：梳理现有操作步骤<br>
+          &nbsp;&nbsp;└ 子任务：识别重复 / 低效环节<br>
+          &nbsp;&nbsp;└ 子任务：输出标准化文档
+        </div>
+      </div>
+      <p class="help-tip">💡 如果子任务还需要再拆，说明主任务粒度太大——拆成多个主任务，而不是往下加层。</p>
+    </div>
+
+    <div class="help-section">
+      <h3>优先级使用</h3>
+      <ul class="help-list">
+        <li>卡片底部的优先级徽章可<strong>直接点击</strong>循环切换（高 → 中 → 低）</li>
+        <li>子任务前的彩色圆点同样可点击修改优先级</li>
+        <li>同一列内任务自动按优先级从高到低排列</li>
+      </ul>
+    </div>
+
+    <div class="modal-actions">
+      <button id="btn-help-close" class="btn-primary">知道了</button>
+    </div>
+  </div>
+</div>
+
+<script>window.QUICK_ROOTS = {{ quick_roots | tojson }};</script>
+<script src="/static/app.js?v=6"></script>
+</body>
+</html>
